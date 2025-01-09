@@ -30,6 +30,8 @@ extern "C" {
 
 /** Unspecified VLAN tag value */
 #define NET_VLAN_TAG_UNSPEC 0x0fff
+/** VLAN ID for forwarding to the native interface */
+#define NET_VLAN_ID_NATIVE 0x0
 
 /**
  * @brief Get VLAN identifier from TCI.

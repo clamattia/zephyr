@@ -276,20 +276,22 @@ static enum net_verdict ethernet_recv(struct net_if *iface,
 	type = ntohs(hdr->type);
 
 	if (IS_ENABLED(CONFIG_NET_VLAN) && type == NET_ETH_PTYPE_VLAN) {
-		if (net_eth_is_vlan_enabled(ctx, iface) &&
-		    !eth_is_vlan_tag_stripped(iface)) {
-			struct net_eth_vlan_hdr *hdr_vlan =
-				(struct net_eth_vlan_hdr *)NET_ETH_HDR(pkt);
-			enum net_verdict verdict;
+		enum net_verdict verdict;
+		struct net_eth_vlan_hdr *hdr_vlan = (struct net_eth_vlan_hdr *)NET_ETH_HDR(pkt);
+		uint16_t tci = ntohs(hdr_vlan->vlan.tci);
+		uint16_t vlan_id = net_eth_vlan_get_vid(tci);
+		bool forward_to_vlan_iface = net_eth_is_vlan_enabled(ctx, iface) &&
+			!eth_is_vlan_tag_stripped(iface);
 
-			net_pkt_set_vlan_tci(pkt, ntohs(hdr_vlan->vlan.tci));
+		if (vlan_id == NET_VLAN_ID_NATIVE || forward_to_vlan_iface) {
 			type = ntohs(hdr_vlan->type);
 			hdr_len = sizeof(struct net_eth_vlan_hdr);
 			is_vlan_pkt = true;
+		}
 
-			net_pkt_set_iface(pkt,
-					  net_eth_get_vlan_iface(iface,
-						       net_pkt_vlan_tag(pkt)));
+		if (forward_to_vlan_iface) {
+			net_pkt_set_vlan_tci(pkt, tci);
+			net_pkt_set_iface(pkt, net_eth_get_vlan_iface(iface, vlan_id));
 
 			/* If we receive a packet with a VLAN tag, for that we don't
 			 * have a VLAN interface, drop the packet.
